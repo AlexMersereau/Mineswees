@@ -1,0 +1,1734 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/5.3.3/pixi.js" 
+            integrity="sha512-xPzA8KIOF93rqeaC6Uz7QgGfE5e+SknGGJwCznlytA64L8ePMWu9y0VEoGgYKLIAOFfrbtA5rQwCwLjtNs1Lcw==" 
+            crossorigin="anonymous">
+    </script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-filters@latest/dist/pixi-filters.js">         
+    </script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/seedrandom/3.0.5/seedrandom.min.js">
+    </script>
+
+    <style type="text/css">
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            /*-webkit-user-select:none;*/
+        }
+        body {
+            /*overflow: hidden;*/
+            text-align : center;
+            background-color: lightgray;
+            background-attachment: fixed;
+        }
+        canvas {
+            display : block;
+            width : auto;
+            height : auto;
+            margin : auto;
+            padding : 0;
+            border : none;
+            background-color : lightgray;
+        }
+        button {
+            display : flex;
+            font-size : inherit;
+            margin : auto;
+            padding : 0.6em;
+        }
+        .restart-group button {
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+
+        .btn-group {
+            position: relative;
+        }
+
+        .btn-group button {
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+        .seed-group button {
+            text-align: center;
+            text-decoration: none;
+            display: inline-block;
+            cursor: pointer;
+        }
+        #seedText {
+            text-align: center;
+            margin-top: 4px;
+        }
+
+        label {
+            position: relative;
+            /*display: inline;*/
+            justify-content: center;
+            align-items: center;
+            user-select: none;
+        }
+
+        .tooltiptext {
+            position: absolute;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            flex-shrink: 0;
+            background-color: #555555;
+            color: #FFFFFF;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 20px;
+            bottom: 125%;
+            left: 50%;
+            margin-right: -500%;
+            transform: translate(-50%);
+            z-index: 1;
+            pointer-events: none;
+        }
+
+        /* Tooltip arrow */
+        .tooltiptext::after {
+            content: "";
+            position: absolute;
+            top: 100%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555555 transparent transparent transparent;
+        }
+
+        label:hover > div.tooltiptext {
+            visibility: visible;
+            opacity: 1;
+        }
+
+        .themes {
+            display: flex;
+            position: absolute;
+            flex-direction: column;
+            text-align: left;
+            position: fixed;
+            /*left: 0;*/
+            bottom: 0;
+        }
+
+        .sizes {
+            display: flex;
+            position: absolute;
+            flex-direction: column;
+            text-align: left;
+            position: fixed;
+            right: 5px;
+            bottom: 0;
+        }
+
+        .button-tooltip {
+            position: relative;
+        }
+
+        .button-tooltip::before {
+            content: attr(tooltip-text);
+            white-space: pre;
+            position: absolute;
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            flex-shrink: 0;
+            background-color: #555555;
+            color: #FFFFFF;
+            text-align: center;
+            border-radius: 6px;
+            padding: 5px 20px;
+            bottom: 125%;
+            left: 50%;
+            margin-right: -500%;
+            transform: translate(-50%);
+            z-index: 1;
+            pointer-events: none;
+        }
+        .button-tooltip:hover::before {
+            visibility: visible;
+            opacity: 1;
+        }
+        .button-tooltip:hover::after {
+            visibility: visible;
+            opacity: 1;
+        }
+        /* Tooltip arrow, this is basically positioned after the popup by making the "top" negative.*/
+        .button-tooltip::after {
+            content: "";
+            visibility: hidden;
+            opacity: 0;
+            transition: opacity 0.3s;
+            position: absolute;
+            top: -25%;
+            left: 50%;
+            margin-left: -5px;
+            border-width: 5px;
+            border-style: solid;
+            border-color: #555555 transparent transparent transparent;
+        }
+    </style>
+
+    <!-- Powerup JSON -->
+    <script type="application/json" id="powerupJSON">
+        {
+            "sonar": {
+                "activeColor":  "0x9090FF",
+                "pickupColor":  "0xa5a5f3",
+                "duration":     "150",
+                "startCount":   "1, 1, 1, 1",
+                "weight":       "5,20,20,30",
+                "effectTarget": "many",
+                "tooltipText":  "Briefly highlights ALL tiles that have 0 mine neighbors."
+            },
+            "radar": {
+                "activeColor":  "0xFFC799",
+                "pickupColor":  "0xf3c8a5",
+                "duration":     "2500",
+                "startCount":   "1, 1, 1, 1",
+                "weight":      "40,40,40,40",
+                "effectTarget": "one",
+                "tooltipText":  "Briefly highlights 1 tile that is a mine and is not flagged."
+            },
+            "xray": {
+                "activeColor":  "0",
+                "pickupColor":  "0xa5f3eb",
+                "duration":     "0",
+                "startCount":   "0, 0, 1, 1",
+                "weight":       "5,15,10,10",
+                "effectTarget": "flags",
+                "tooltipText":  "Turns any correctly placed flag green."
+            },
+            "sensor": {
+                "activeColor":  "0xAAFF90",
+                "pickupColor":  "0xd9f3a5",
+                "duration":     "2500",
+                "startCount":   "1, 1, 1, 1",
+                "weight":      "10,20,20,20",
+                "effectTarget": "cleared",
+                "tooltipText":  "Briefly highlights tiles that are surrounded by the correct number of flags but still have uncleared neighbors.\n(Note: This does not guarantee that the flags are correctly placed.)"
+            },
+            "scanner": {
+                "activeColor":  "0xFF8FFF",
+                "pickupColor":  "0xf3a5f3",
+                "duration":     "2500",
+                "startCount":   "1, 1, 1, 1",
+                "weight":      "20,30,40,40",
+                "effectTarget": "cleared",
+                "tooltipText":  "Briefly highlights tiles whose neighbors can be flagged now."
+            }
+        }
+    </script>
+
+    <!-- Powerup Scripts -->
+    <script>
+        let powerupFilters = {
+            sonar : n => n.mineNeighbors == 0 && !n.state.revealed,
+            radar : [n => n.isMine && !n.state.flagged && !n.state.powerupActive, n => n.neighbors.some(m => m.state.revealed), n => n.neighbors.some(m => m.state.revealed && m.mineNeighbors-m.flaggedNeighbors == 1), n => n.neighbors.some(m => m.state.revealed && m.isGlyph)],
+            xray : n => n.state.flagged && n.isMine,
+            sensor : n => n.state.revealed && n.mineNeighbors != 0 && n.mineNeighbors == n.flaggedNeighbors && n.neighbors.filter(n=>!n.state.flagged && !n.state.revealed).length != 0,
+            scanner : n => n.state.revealed && n.mineNeighbors != 0 && n.neighbors.filter(n=>!n.state.flagged && !n.state.revealed).length == (n.mineNeighbors - n.flaggedNeighbors) && n.mineNeighbors != n.flaggedNeighbors
+        };
+    </script>
+
+</head>
+
+<body onload="startGame()">
+
+<p>Mineswees</p>
+
+<div id="mines">mines left: 0</div>
+
+<div id="clicks">clicks: 0</div>
+
+<div id="winnintext"><br></div>
+
+<script>
+    'use strict';
+
+    //config stuff
+
+    const TILE_HEIGHT = 19;
+    const TILE_WIDTH  = 19;
+
+    const BG_COLOR           = 0xD3D3D3;
+    const REVEALED_COLOR     = 0xFFFFFF;
+    const MINE_COLOR         = 0xFF0000;
+    const UNREVEALED_COLOR   = 0x909090;
+
+    // const ACTIVE_ECHO_COLOR    = 0x9090FF;
+    // const ACTIVE_RADAR_COLOR   = 0xF0BB90;
+    // const ACTIVE_XRAY_COLOR    = 0xDDA0DD;
+    // const ACTIVE_SENSOR_COLOR  = 0xAAFF90;
+    // const ACTIVE_SCANNER_COLOR = 0xDDA0DD;
+
+    // const POWUP_ECHO_COLOR    = 0x9090F0;
+    // const POWUP_RADR_COLOR    = 0xF0BB90;
+    // const POWUP_XRAY_COLOR    = 0xDDA0DD;
+    // const POWUP_SENSOR_COLOR  = 0xAAFF00;
+    // const POWUP_SCANNER_COLOR = 0xDDA0DD;
+
+    const FLAG_COLOR         = 0x666666;
+    const WALL_COLOR         = 0x000000;
+    const HIGHLIGHT_COLOR    = 0xB0B0B0;
+    const ACTIVE_GLYPH_COLOR = 0xCCBBFF;
+    const SOLVED_GLYPH_COLOR = 0x99FF99;
+    const BLOWN_GLYPH_COLOR  = 0xFF9999;
+
+    const makeRGBobj = (r,g,b) => ({r, g, b})
+    const hexToRGB = (hex) => makeRGBobj(...hex.toString(16).match(/.{2}/g).map(n=>parseInt(n,16)))
+
+    // const FRAME_RATE_INTERVAL = 13;
+    //measured in frames
+    // const ECHO_DURATION    = 150;
+    // const RADAR_DURATION   = 2500;
+    // const XRAY_DURATION    = 2500;
+    // const SENSOR_DURATION  = 2500;
+    // const SCANNER_DURATION = 2500;
+
+    const GLYPH_TIMELIMIT = 800;
+
+    const WAVE_FILTER_SPEED = 0.005;
+
+    const powerupJSON = JSON.parse(document.getElementById("powerupJSON").innerHTML)
+
+    //difficulty elements
+    function difficultyClass (index) {
+        this.difficultySetting   = index;
+        this.gridHeight          = [10,  15,  20,  40][index];
+        this.gridWidth           = [10,  15,  20,  40][index];
+        this.gridMines           = [14,  40, 100, 400][index];
+        this.gridPowerups        = [ 3,   7,  15,  50][index];
+        this.gridGlyphs          = [ 3,   7,  10,  30][index];
+        this.startEchoCount      = [ 1,   1,   1,   1][index];
+        this.startRadarCount     = [ 1,   1,   1,   1][index];
+        this.startXrayCount      = [ 1,   0,   0,   0][index];
+        this.startSensorCount    = [ 1,   1,   1,   1][index];
+        this.startScannerCount   = [ 1,   1,   1,   1][index];
+        this.echoRatio           = [ 5,  15,  20,  30][index];
+        this.radarRatio          = [40,  40,  40,  40][index];
+        this.xrayRatio           = [10,  10,  10,  10][index];
+        this.sensorRatio         = [40,  40,  40,  40][index];
+        this.scannerRatio        = [10,  10,  10,  10][index];
+        this.clickLimit          = [25,  60, 110, 400][index];
+    }
+
+    let difficulty = Object.freeze(new difficultyClass(0)); //Freezing an object makes it immutable, like a const
+
+    let limitedClicksMode = false;
+    let paranoiaMode = false;
+    let labyrinthMode = false;
+    let borderMode = true;
+    let glyphsEnabled = false;
+    let adventureMode = false;
+
+    // let echoCount;
+    // let radarCount;
+    // let xrayCount;
+    // let sensorCount;
+    // let scannerCount;
+
+    let totalClicks = 0;
+
+    let keepWalls = false;
+
+    let lost = false;
+    let won = false;
+    let started = false;
+
+    let GameObjects = [];
+    let VertiWalls = [];
+    let HorizWalls = [];
+    let GraphicObjects = [];
+    let TickerObjects = [];
+    let powerupList = [];
+
+    let textParticleList = [];
+    // let powerupFilters = [];
+    // let edges = [];
+    // let vertices = [];
+
+    let activeGlyphs = [];
+
+    let touchHoldDuration = 500;
+    let blockPointerUp = false;
+    let touchId = false;
+
+    let seedVisible = false;
+    let seedMode = false;
+    let seed;
+    let prng;
+
+    let GAME_WIDTH = difficulty.gridWidth*(TILE_WIDTH+1) + 2
+    let GAME_HEIGHT = difficulty.gridHeight*(TILE_HEIGHT+1) + 2
+
+    const app = new PIXI.Application({
+        backgroundColor: BG_COLOR,
+        width: GAME_WIDTH,
+        height: GAME_HEIGHT, 
+        antialias: false
+    });
+    app.stage.interactive = true;
+
+    document.body.appendChild(app.view);
+
+    let gameGrid = new PIXI.Graphics();
+    gameGrid.position.set(1,0);
+    app.stage.addChild(gameGrid);
+    createGrid(difficulty.gridHeight, difficulty.gridWidth);
+
+    app.view.oncontextmenu = function () { return false; }                                  //prevent context menu on RMB
+    app.view.onselectstart = function () { return false; }                                  //prevents text-like selection of the game grid
+    addEventListener("mousedown", function(e){ if(e.button == 1){ e.preventDefault(); } }); //prevent scrollwheel
+    addEventListener("visibilitychange", () => document.hidden? PIXI.Ticker.shared.stop() : PIXI.Ticker.shared.start()) //prevent ticker loop from running when the page isn't visible
+
+    let mousePosition = {x: 0, y: 0};
+
+    app.stage
+        .on('mousemove', onPointerMove)
+        .on('touchmove', onPointerMove)
+
+    function onPointerMove(eventData) {
+        mousePosition = {
+            x: eventData.data.global.x,
+            y: eventData.data.global.y,
+            normX: eventData.data.global.x / gameGrid.width, //GAME_WIDTH,
+            normY: eventData.data.global.y / gameGrid.height, //GAME_HEIGHT,
+        }
+        // console.log(~~mousePosition.x, ~~mousePosition.y)
+        // if (mousePosition.x > 0) app.view.width = mousePosition.x
+    }
+
+
+    function startGame(seedIn = ""){
+
+        if (seedIn.length == 0){
+            seed = Math.seedrandom()
+            seed = seed.substr(0,10).split("").map(n => Base64.fromInt(n.charCodeAt(0) % 62)).join("");
+            seedIn = seed
+        }
+
+        prng = new Math.seedrandom(seedIn)
+        updateSeed();
+
+        app.stage.children.forEach(c => c.clear())
+        lost = false;
+        won = false;
+        started = false;
+
+        totalClicks = 0;
+
+        if (!keepWalls){
+            plantWalls();
+        }
+
+        GameObjects.forEach(tile => tile.clear())
+        
+        // Create powerups out of the powerup JSON script (and the filter functions defined near it)
+        let powerupGroup = document.getElementById("powerup-group")
+        while (powerupGroup.firstChild){
+            powerupGroup.firstChild.remove();
+        }
+        powerupList = []
+        Object.entries(powerupJSON).forEach(([key,value]) => new powerup(key, value))
+        // console.log(powerupList);
+
+        document.querySelectorAll(".mode-group input").forEach(e => e.disabled = false)
+        document.querySelectorAll(".btn-group button").forEach(b => b.disabled = true)
+
+        document.getElementById("winnintext").style.visibility  = "hidden"
+        
+        document.getElementById("mines").innerHTML = `mines left: ${difficulty.gridMines}`
+        document.getElementById("clicks").innerHTML = `clicks: ${totalClicks}${limitedClicksMode? " / " + difficulty.clickLimit : ""}`
+
+        activeGlyphs = [];
+
+        TickerObjects.forEach(t => app.ticker.remove(t))
+
+        app.ticker.start()
+    }
+
+    function decodeSeedBlock(seedBlock){
+        result = []
+
+        let pos = 0;
+        seedBlock.split("").forEach(w => {
+            pos += Base64.toInt(w)
+            result.push(pos)
+        })
+        return result;
+    }
+
+    function tile(x,y,id){
+        this.id     = id;
+        this.x      = 1 + x * 20;
+        this.y      = 1 + y * 20;
+        this.relativeX = x;
+        this.relativeY = y;
+        this.height = TILE_HEIGHT;
+        this.width  = TILE_WIDTH;
+        
+        this.graphic     = new PIXI.Graphics();
+        this.flagGraphic = new PIXI.Graphics();
+        this.edgeGraphic = new PIXI.Graphics();
+        this.textGraphic = new PIXI.Text("", {fontSize: 14, align : 'center'});
+
+        this.textGraphic.position.set(5, 2);
+
+        this.color  = UNREVEALED_COLOR;
+        
+        this.checked = false;
+        this.isMine = false;
+        this.state = {
+            flagged:        false,
+            revealed:       false,
+            mine:           false,
+            powerupActive:  false,
+            flaggedCorrect: false,
+
+            clear() {this.flagged = false; this.revealed = false; this.mine = false; this.powerupActive = false; this.flaggedCorrect = false;}
+        }
+
+        this.powerup = false;
+
+        this.isGlyph = false;
+        this.isDisarmed = false;
+
+        this.mineNeighbors = 0;
+        this.flaggedNeighbors = 0;
+        this.neighbors = [];
+        this.allNeighbors = new Set();
+        this.adjacentNeighbors = new Set();
+
+        this.createGraphic = function(){
+
+            this.graphic.x = this.x;
+            this.graphic.y = this.y;
+
+            this.graphic.interactive = true;
+            this.graphic.buttonMode  = true;
+            let timer;
+
+            function clearTimer (blockPointerChange = null) {
+                if (blockPointerChange != null) blockPointerUp = blockPointerChange
+                if (timer){
+                    clearTimeout(timer);
+                    timer = null;
+                }
+            } 
+
+            this.graphic.on('touchstart',  (e) => {
+                // console.log("touchstart", this.id)
+                touchId = this.id
+                blockPointerUp = false;
+                timer = setTimeout(() => {
+                    // console.log("timer pop")
+                    blockPointerUp = true;
+                    timer = null;
+                    if (this.state.revealed) click(this, 1)
+                    else click(this, 2)
+                }, touchHoldDuration)
+            })
+
+            this.graphic.on('touchend',        function(){clearTimer()})
+
+            this.graphic.on('touchendoutside', function(){clearTimer(true)})
+
+            this.graphic.on('touchmove',   (e) => {
+                // let {x, y} = e.data.global
+                if (timer && this.id == touchId) {
+                    blockPointerUp = true;
+                    let x = e.data.originalEvent.touches[0].pageX - app.view.offsetLeft
+                    let y = e.data.originalEvent.touches[0].pageY - app.view.offsetTop
+                    // console.log("before")
+                    let mousePoint = new PIXI.Point(x,y);
+                    // console.log(this.graphic.containsPoint(mousePoint))
+                    // let a = (this.graphic.position.x < x)
+                    // let b = (this.graphic.position.y < y)
+                    // let c = (this.graphic.position.x + this.graphic.width > x)
+                    // let d = (this.graphic.position.y + this.graphic.height > y)
+                    // 
+                    // if (a && b && c && d) return;
+                    
+                    if (this.graphic.containsPoint(mousePoint)) return;
+
+                    clearTimeout(timer);
+                    timer = null;
+                }
+            })
+
+            this.graphic.on('pointerup',   (e) => {
+                if (blockPointerUp) return;
+                // console.log("pointerup")
+                click(this, e.data.button)
+            });
+            this.graphic.on('pointerover', (e) => {
+                if (lost || won) return;
+                if (adventureMode && !this.state.revealed) return;
+                this.neighbors.filter(n=>!n.state.revealed).forEach(n=> n.updateGraphic(HIGHLIGHT_COLOR));
+                // console.log(this.id, this.x, this.y, this.graphic.x, this.graphic.y);
+            });
+            this.graphic.on('pointerout',  (e) => {
+                // console.log("touchout")
+                // if (timer) {
+                //     console.log("touchend")
+                //     clearTimeout(timer);
+                //     timer = null;
+                // }
+                this.neighbors.forEach(n=>n.updateGraphic())
+            });
+
+            this.graphic.addChild(this.flagGraphic)
+            this.graphic.addChild(this.textGraphic)
+            this.graphic.addChild(this.edgeGraphic)
+
+            gameGrid.addChild(this.graphic);
+
+            this.updateGraphic();
+        }
+
+        this.updateGraphic = function(tempColor){
+
+            // if (!this.state.revealed) this.color = UNREVEALED_COLOR;
+            if (this.state.revealed) {
+                if (this.isMine)         this.color = MINE_COLOR;
+                if (this.powerup)        this.color = this.powerup.pickupColor;
+                // if (this.powerup.echo)   this.color = POWUP_ECHO_COLOR;
+                // if (this.powerup.radar)  this.color = POWUP_RADR_COLOR;
+                // if (this.powerup.xray)   this.color = POWUP_XRAY_COLOR;
+                // if (this.powerup.sensor) this.color = POWUP_SENSOR_COLOR;
+            }
+
+            if (this.state.flagged) {
+
+                let LL = TILE_WIDTH;
+
+                let flagColor = (this.state.flaggedCorrect || ((lost || won) && this.isMine))? 0x00FF00 : 0xFF0000;
+
+                this.flagGraphic.clear()
+                                .lineStyle(2, 0x000000, 1)
+                                .moveTo(4, TILE_HEIGHT-3)
+                                .lineTo(TILE_WIDTH-5, TILE_HEIGHT-3)
+                                .moveTo(TILE_WIDTH/2, TILE_HEIGHT-3)
+                                .lineTo(TILE_WIDTH/2, 3)
+                                .lineStyle(0, 0xFF0000, 1)
+                                .beginFill(flagColor)
+                                .moveTo(TILE_WIDTH/2-1, 3)
+                                .lineTo(TILE_WIDTH/4-4, TILE_HEIGHT/4)
+                                .lineTo(TILE_WIDTH/2-1, TILE_HEIGHT/2)
+                                .endFill()
+
+                this.edgeGraphic.clear()
+                                .lineStyle(1, BG_COLOR, 1)
+                                .moveTo( 0,  0)
+                                .lineTo( 0, LL)
+                                .lineTo(LL, LL)
+                                .lineTo(LL,  0)
+                                .lineTo( 0,  0)
+
+            } else {
+                this.flagGraphic.clear();
+                this.edgeGraphic.clear();
+            }
+            
+            //draw the actual square
+            this.graphic.clear()
+                        .lineStyle(1, BG_COLOR)
+                        .beginFill(tempColor? tempColor : this.color)
+                        .drawRect(0, 0, TILE_WIDTH, TILE_HEIGHT)
+                        .endFill()
+
+            if (this.isGlyph && this.state.revealed && !this.isMine){
+                let LL = 7;
+
+                let top =   [2+LL,   2];
+                let left =  [2,      2+LL*2];
+                let right = [2+LL*2, 2+LL*2];
+
+                this.graphic.lineStyle(0, this.color)
+                            .beginFill(this.isDisarmed? SOLVED_GLYPH_COLOR : (lost? BLOWN_GLYPH_COLOR : ACTIVE_GLYPH_COLOR))
+                            .moveTo(top[0],top[1])
+                            .lineTo(left[0],left[1])
+                            .lineTo(right[0],right[1])
+                            .endFill()
+            }
+
+            if (this.state.revealed && (paranoiaMode || this.mineNeighbors > 0) && !this.isMine){
+                this.textGraphic.text = this.mineNeighbors;
+                this.textGraphic.visible = true;
+            } else {
+                this.textGraphic.visible = false;
+            }
+
+            if (this.state.revealed) this.graphic.interactive = this.mineNeighbors != 0 || paranoiaMode;
+        }
+
+        this.getNeighbors = function(){
+            this.allNeighbors = new Set();
+            this.adjacentNeighbors = new Set();
+            this.labyrinthNeighbors = new Set();
+            this.neighbors = []
+
+            const m = difficulty.gridWidth;
+            [
+                [-1,-m],[0,-m],[1,-m],
+                [-1, 0],[0, 0],[1, 0],
+                [-1, m],[0, m],[1, m]
+            ].forEach((n, i) => {
+                if (n[0] == 0 && n[1] == 0) return;
+                let x = n[0]
+                let y = n[1]
+                if (x == -1 && this.relativeX == 0) x += m;
+                if (x ==  1 && this.relativeX == m-1) x -= m;
+                if (y == -m && this.relativeY == 0) y += m * difficulty.gridHeight;
+                if (y ==  m && this.relativeY == difficulty.gridHeight-1) y -= GameObjects.length;
+
+                const neighborCoord = this.id + x + y;
+
+                this.allNeighbors.add(GameObjects[neighborCoord]);
+
+                if (n[0] == 0 || n[1] == 0){
+                    if (n[1] == -m && HorizWalls[neighborCoord].active) return;
+                    if (n[0] ==  1 && VertiWalls[this.id].active) return;
+                    if (n[1] ==  m && HorizWalls[this.id].active) return;
+                    if (n[0] == -1 && VertiWalls[neighborCoord].active) return;
+                }
+
+                if (n[0] != 0 && n[1] != 0){ //detect walls blocking corner neighbors
+                    const FV = VertiWalls[this.id + y + x * (n[0] == -1)].active      //Far  Vertical
+                    const NV = VertiWalls[this.id     + x * (n[0] == -1)].active      //Near Vertical
+                    const FH = HorizWalls[this.id + x + y * (n[1] == -m)].active      //Far  Horizontal
+                    const NH = HorizWalls[this.id     + y * (n[1] == -m)].active      //Near Horizontal
+
+                    if (NH && (NV || FH) || (NV && FV) || (FH && FV)) return;           //Obstruction detected
+                }
+
+                this.labyrinthNeighbors.add(GameObjects[neighborCoord]);
+                if (n[0] == 0 || n[1] == 0){
+                    this.adjacentNeighbors.add(GameObjects[neighborCoord]);
+                }
+            })
+            this.neighbors = [...this.labyrinthNeighbors];
+        }
+
+        this.getMineNeighbors = function(){
+            if (this.isMine) this.mineNeighbors = -1;
+            else this.mineNeighbors = this.neighbors.filter(n => n.isMine).length;
+        }
+
+        this.reveal = function(){
+            this.state.revealed = true;
+
+            if (this.isMine) {
+                loseGame();
+            } else if (this.powerup) {
+                this.powerup.updateCount(this.powerup.count+1);
+            } else if (this.isGlyph) {
+                this.color = REVEALED_COLOR;
+                let i = this.id;
+
+                const f = () => glyphTimeout(i, activeGlyphs.length);
+                activeGlyphs.push(this.id);
+
+                let glyphTime = 0;
+                let pulseCountdown = 5;
+
+                const glyphTimeout = () => {
+                    glyphTime++;
+
+                    if ((this.neighbors.filter(n => !n.state.revealed && !n.state.flagged).length == 0 && this.neighbors.filter(n=>n.state.flagged).length == this.mineNeighbors) || won) {
+                        this.isDisarmed = true;
+                        this.updateGraphic();
+                        app.ticker.remove(f);
+                        return;
+                    }
+                    if (!started || lost) {
+                        app.ticker.remove(f);
+                        return;
+                    }
+                    if (!this.state.revealed){
+                        this.isDisarmed = false;
+                        app.ticker.remove(f);
+                        return;
+                    }
+                    if (glyphTime > (GLYPH_TIMELIMIT/5)*(5-pulseCountdown)){
+                        let particle = new textParticle(5,2,textParticleList.length,pulseCountdown, this);
+                        console.log(pulseCountdown, glyphTime);
+                        pulseCountdown--;
+                    }
+                    if (glyphTime >= GLYPH_TIMELIMIT) {
+                        loseGame();
+                        app.ticker.remove(f);
+                        return;
+                    }
+                    this.updateGraphic();
+                }
+                app.ticker.add(f);
+            } else this.color = REVEALED_COLOR;
+
+            this.updateGraphic();
+            // console.log(this.mineNeighbors)
+            if (this.mineNeighbors == 0) revealZeroes(this, 0);
+        }
+
+        this.clear = function(){
+            this.graphic.clear();
+            this.flagGraphic.clear();
+
+            this.color = UNREVEALED_COLOR;
+
+            this.graphic.clear()
+                        .lineStyle(1, BG_COLOR)
+                        .beginFill(this.color)
+                        .drawRect(0, 0, TILE_WIDTH, TILE_HEIGHT)
+                        .endFill();
+
+            if (this.textGraphic) this.textGraphic.text = "";
+
+            this.state.clear();
+            this.powerup = false;
+
+            this.graphic.interactive = true;
+            this.isMine = false;
+            this.isGlyph = false;
+            this.isDisarmed = false;
+            this.mineNeighbors = 0;
+            this.flaggedNeighbors = 0;
+            this.checked = false;
+        }
+    }
+
+    function wall(x,y,id,o){
+        this.id     = id;
+        this.x      = 1 + x * 20;
+        this.y      = 1 + y * 20;
+        this.o      = o;    //can be "v" or "h"
+        this.relativeX = x;
+        this.relativeY = y;
+        this.length = o == "v"? TILE_HEIGHT : TILE_WIDTH;
+        this.active = false;
+        this.isBorder = false;
+        this.enabled = false;
+
+        this.color = WALL_COLOR;
+
+        if (this.relativeX == difficulty.gridWidth-1  && this.o == "v") this.isBorder = true;
+        if (this.relativeY == difficulty.gridHeight-1 && this.o == "h") this.isBorder = true;
+
+        this.graphic = new PIXI.Graphics();
+
+        this.createGraphic = function(){
+
+            this.graphic.x = this.x;
+            this.graphic.y = this.y;
+
+            gameGrid.addChild(this.graphic);
+        }
+
+        this.updateGraphic = function(){
+            let LL = this.length;
+            this.graphic.clear()
+
+            if (!labyrinthMode) return;
+            if (!this.active) return;
+            if (this.isBorder) return;
+            // if (this.o == "v" && this.id % difficulty.gridWidth == difficulty.gridWidth-1) return;
+            // if (this.o == "h" && this.id > HorizWalls.length - difficulty.gridHeight - 1) return;
+
+            this.graphic.lineStyle(2, this.color)
+            if (this.o == "v"){
+                this.graphic.moveTo(LL, 1)
+                this.graphic.lineTo(LL, LL)
+            } else {
+                this.graphic.moveTo(0,    LL+1)
+                this.graphic.lineTo(LL-1, LL+1)
+            }
+            // if (paranoiaMode) this.graphic.position.set(this.x,this.y - 1);
+            // else this.graphic.position.set(this.x,this.y);
+        }
+
+        this.updateState = (initialSweep = false) => {
+            //disabled means it won't be active in any mode 
+            //borderMode means borders are always active
+            //labyrinthMode means enabled walls must be active
+            if (this.isBorder) this.active = borderMode;
+            else if (this.enabled) this.active = labyrinthMode || initialSweep;     //initialSweep is used in detecting improperly generated wall patterns
+            else this.active = false;
+            this.updateGraphic();
+        }
+
+        this.clear = function(){
+            this.graphic.clear();
+            this.enabled = this.isBorder && borderMode? true : false;
+            this.updateState();
+        }
+    }
+
+    function powerup(name, powJSON){
+
+        this.name = name;
+
+        this.json = powJSON;
+
+        this.activeColor = powJSON.activeColor;
+        this.pickupColor = powJSON.pickupColor;
+        this.duration = powJSON.duration;
+        this.startCount = parseInt(powJSON.startCount.split(",")[difficulty.difficultySetting]);
+        this.weight = parseInt(powJSON.weight.split(",")[difficulty.difficultySetting]);
+        this.target = powJSON.effectTarget;
+        this.tooltipText = powJSON.tooltipText;
+
+        this.count = this.startCount;
+        this.id = powerupList.length;
+
+        powerupList.push(this);
+
+        this.filter = powerupFilters[this.name];
+
+        this.buttonDOM = document.createElement("button");
+        // const capitalize = (str) => str[0].toUpperCase() + str.slice(1)
+        this.buttonDOM.innerHTML = this.name[0].toUpperCase() + this.name.slice(1) + ": " + this.startCount;
+        this.buttonDOM.disabled = true;
+        this.buttonDOM.id = this.name + "Button";
+        this.buttonDOM.setAttribute('tooltip-text', this.tooltipText);
+        this.buttonDOM.className = "button-tooltip"
+
+        document.getElementById("powerup-group").append(this.buttonDOM);
+
+        this.buttonDOM.insertAdjacentHTML("afterend"," <span class=\"button-tooltip-arrow\"\/>")
+
+        this.updateCount = (change = this.count) => {
+            // console.log(this.name, this.id, this.count, change)
+            this.count = Math.max(change,0);
+            this.buttonDOM.disabled = !(started && this.count > 0);
+            this.buttonDOM.innerHTML = this.buttonDOM.innerHTML.replace(/\d+/, this.count);
+            // console.log(this.id)
+            return this.count;
+        }
+
+        this.applyEffect = () => {
+            if (this.disabled) return;
+            let filter = this.filter.length > 1? this.filter[0] : this.filter;
+            let pool = GameObjects.filter(filter)
+            if (pool.length <= 0 || this.count <= 0) return;
+            this.updateCount(this.count-1);
+            if (this.count < 0) return;
+
+            //narrow the pool if possible based on secondary filter
+            if (this.filter.length > 1) {
+                let narrowPool = pool
+                let lastPool = pool
+                this.filter.slice(1).some(f => {
+                    lastPool = narrowPool
+                    narrowPool = narrowPool.filter(f);
+                    console.log(narrowPool.map(n=>n.id))
+                    return !narrowPool.length   //keep going if the pool isn't empty
+                })
+                pool = narrowPool.length > 0? narrowPool : lastPool //if narrowPool is empty, take the last pool iteration that wasn't
+                console.log("result:", pool.map(n=>n.id))
+            }
+
+            //apply effect based on target
+            if (this.target == "many"){
+                pool.forEach(n => {
+                    fade(n, this.activeColor, UNREVEALED_COLOR, this.duration)
+                })
+                return;
+            }
+            if (this.target == "one"){
+                let target = pool[~~(prng() * pool.length)]
+                target.state.powerupActive = true;
+                fade(target, this.activeColor, UNREVEALED_COLOR, this.duration)
+                return;
+            }
+            if (this.target == "cleared"){
+                // console.log(this.activeColor)
+                pool.forEach(n => {
+                    fade(n, this.activeColor, REVEALED_COLOR, this.duration)
+                })
+                return;
+            }
+            if (this.target == "flags"){
+                pool.forEach(n => {
+                    n.state.flaggedCorrect = true;
+                    n.updateGraphic();
+                })
+            }
+        }
+
+        this.buttonDOM.addEventListener('mouseup', this.applyEffect);
+    }
+
+    function textParticle(x,y,id=0,text,parentTile){
+        this.id = id;
+        this.initX  = x;
+        this.x      = x;
+        this.initY  = y;
+        this.y      = y;
+
+        this.t = 0;
+
+        this.parent = parentTile
+
+        this.textGraphic = new PIXI.Text("", {fontSize: 14, align : 'center'});
+        this.textGraphic.text = text;
+        this.dir = prng() > 0.5? 1:-1;
+
+        textParticleList.push(this);
+        parentTile.graphic.addChild(this.textGraphic);
+
+        this.movementFunc = (t) => 1.5**2 - (t+this.dir*1.5)**2
+
+        this.posUpdate = () => {
+            this.t = (this.t * 10 + 1) / 10;
+            this.x += 0.1*this.dir;
+            this.y = this.initY+this.movementFunc(-this.dir*this.t)
+            this.textGraphic.position.set(this.x, this.y);
+            // if(this.id == 0) console.log("posUpdate", this.id, this.t, this.y, this.dir)
+
+            if (this.y < -difficulty.gridHeight*TILE_HEIGHT) {
+                textParticleList = textParticleList.filter(t=>!t.id == this.id);
+                this.clear();
+                // app.ticker.remove(this.posUpdate)
+            }
+        }
+
+        this.clear = () => {
+            app.ticker.remove(this.posUpdate);
+            this.textGraphic.visible = false;
+        }
+
+        app.ticker.add(this.posUpdate);
+    }
+
+    function createGrid(gW, gH){
+        console.log("createGrid")
+        for (let y = 0; y < gW; y++){
+            // console.log("new line, GameObjects length: ", GameObjects.length)
+            for (let x = 0; x < gH; x++){
+                let newTile = new tile(x,y, GameObjects.length)
+                
+                let vWall = new wall(x, y, GameObjects.length, "v") //right wall
+                let hWall = new wall(x, y, GameObjects.length, "h") //down  wall
+
+                newTile.createGraphic();
+                newTile.graphic.interactive = true;
+
+                VertiWalls.push(vWall);
+                HorizWalls.push(hWall);
+
+                GameObjects.push(newTile);
+            }
+        }
+
+        // create wall graphics AFTER tile graphics
+        VertiWalls.forEach(n => n.createGraphic());
+        HorizWalls.forEach(n => n.createGraphic());
+
+        GameObjects.forEach(n => {
+            n.getNeighbors();
+        });
+
+        console.log("end of createGrid")
+    }
+
+    const getDistancesIn64 = (v, index, arr) => {
+        if (index == 0) return v.id < 9? ""+v.id : Base64.fromInt(v.id);
+
+        let result = v.id - arr[index-1].id;
+
+        return result < 9? ""+result : Base64.fromInt(result);
+    }
+
+    function plantWalls(){
+        do {
+            HorizWalls.forEach(wall => {
+                wall.clear();
+                wall.enabled = (borderMode && wall.isBorder) || prng() > 0.8;
+                wall.updateState(true);
+            });
+            VertiWalls.forEach(wall => {
+                wall.clear();
+                wall.enabled = (borderMode && wall.isBorder) || prng() > 0.8;
+                wall.updateState(true);
+            });
+
+            GameObjects.forEach(tile => {
+                tile.getNeighbors();
+                tile.checked = false;
+                tile.updateGraphic();
+            });
+
+            sweepGrid(GameObjects[0]);
+            // console.log("after wall sweep", GameObjects.filter(n=>!n.checked).length, n)
+        } while (GameObjects.filter(tile => !tile.checked).length > 0)
+
+        //set walls to their proper state after the sweepGrid
+        HorizWalls.forEach(wall => wall.updateState());
+        VertiWalls.forEach(wall => wall.updateState());
+
+        GameObjects.forEach(tile => {tile.getNeighbors(); tile.checked = false;})
+    }
+
+    function sweepGrid(tile, depth = 0, checkMines = false){
+        if (tile.checked) return;
+        tile.checked = true;
+        if (checkMines && tile.isMine) return;
+        if (depth > difficulty.gridWidth*(difficulty.gridHeight+1)) {console.log("max recursion depth"); return;}
+        tile.neighbors.forEach(n => sweepGrid(n, depth+1, checkMines))
+    }
+
+    function plantMines(freeTile){
+
+        do {
+            GameObjects.forEach(n => n.isMine = false)
+
+            let mines = new Set();
+            let pool = GameObjects.filter(t => t.id != freeTile.id).map(t => t.id)
+
+            while (mines.size < difficulty.gridMines && pool.length > 0){
+                const index = ~~(prng() * pool.length)
+                const id = pool[index]
+
+                pool.splice(index, 1);
+
+                mines.add(id)
+            }
+            mines = [...mines]
+            mines.sort((a,b)=>a-b)
+            // console.log(mines)
+
+            mines.forEach(mineCoord => GameObjects[mineCoord].isMine = true)
+
+            GameObjects.forEach(tile => {tile.getMineNeighbors(); tile.checked = false;})
+
+            // console.log("starting mine sweep")
+            sweepGrid(freeTile, 0, true);
+            // console.log("after mine sweep"
+        } while (GameObjects.filter(n=>!n.checked).length > 0)
+
+        GameObjects.forEach(tile => tile.checked = false)        
+    }
+
+    function plantPowerups(freeTile){
+
+        let powerupLocations = new Set();
+
+        let pool = GameObjects.filter(t => !(t.isMine || t.mineNeighbors == 0 || t.isEcho || t.isRadr || t.id == freeTile.id)).map(t => t.id)
+
+
+        //determine candidates for powerup locations
+        while (powerupLocations.size < difficulty.gridPowerups && pool.length > 0){
+            const index = ~~(prng() * pool.length)
+            const id = pool[index]
+
+            pool.splice(index, 1);
+
+            if(GameObjects[id].neighbors.some(n => n.mineNeighbors == 0)){
+                continue;  //don't put a powerup next to a zero
+            }
+
+            if(GameObjects[id].neighbors.map(n=>n.id).some(i => [...powerupLocations].includes(i))){
+                continue;   //don't put a powerup next to another powerup
+            }
+            powerupLocations.add(id)
+        }
+
+        powerupLocations = [...powerupLocations]
+
+        let pPool = powerupList.map(n=>n.weight)
+        let pPoolTotal = pPool.reduce((total,x) => total += x)
+        pPool = pPool.map(n=>n/pPoolTotal).map(n=>Math.round(n*difficulty.gridPowerups));
+
+        let priority = powerupList.map((n,i) => [i, n.weight])
+        
+        // console.log(pPool)
+
+        //assign a powerup type to each powerup location
+        powerupLocations.forEach(pCoord => {
+            // console.log(pPool)
+            let x = 0;
+            let res = pPool.some((n,i) => {
+                // console.log("outer", {n})
+                if (n <= 0) return false;
+
+                GameObjects[pCoord].powerup = powerupList[i];
+                n--;
+                x = i;
+                return true;
+            })
+            if (res) pPool[x]--;
+            else {
+                priority.sort((a,b) => b[1]-a[1])
+                GameObjects[pCoord].powerup = powerupList[priority[0][0]];
+                priority[0][1]--;
+            }
+            return;
+
+        })
+        // GameObjects.filter(t => t.powerup).forEach(t => t.reveal())
+    }
+
+    function plantGlyphs(freeTile){
+        // console.log("planting glyphs")
+        let glyphs = new Set();
+        let pool = GameObjects.filter(t => !(t.isMine || t.mineNeighbors == 0 || t.powerup || t.id == freeTile.id)).map(t => t.id)
+        
+        while (glyphs.size < difficulty.gridGlyphs && pool.length > 0){
+            const index = ~~(prng() * pool.length)
+            const id = pool[index]
+
+            pool.splice(index, 1);
+
+            if (GameObjects[id].neighbors.some(n => n.mineNeighbors == 0)){
+                continue;   //don't put a glyph next to a zero
+            }
+
+            if (GameObjects[id].neighbors.map(n=>n.id).some(i => [...glyphs].includes(i))){
+                continue;   //don't put a glyph next to another glyph
+            }
+
+            if (GameObjects[id].neighbors.length <= GameObjects[id].mineNeighbors + 1) continue;
+
+            glyphs.add(id)
+        }
+        glyphs = [...glyphs]
+        glyphs.sort((a,b)=>a-b)
+
+        glyphs.forEach(gCoord => GameObjects[gCoord].isGlyph = true)
+
+        // GameObjects.filter(g=>g.isGlyph).forEach(t=>t.reveal())
+
+        // console.log("planting glyphs done")
+    }
+
+    function revealZeroes(tile, depth = 0){
+        //base cases:
+        if (tile.checked) return;       //don't check the tiles that have already been checked
+        tile.checked = true;
+        if (depth > difficulty.gridHeight*difficulty.gridWidth) {console.log(`max depth reached! ${depth}`); return;}          //loop safety - it should never travel more than the total area of the stage
+        if (tile.state.flagged) return;
+
+        if (!tile.state.revealed) tile.reveal();
+        
+        if (tile.mineNeighbors == 0) tile.neighbors.forEach(n => revealZeroes(n, depth+1))
+    }
+
+    function addShockwave(){
+        let newWaveFilter = new PIXI.filters.ShockwaveFilter();
+        newWaveFilter.center = [mousePosition.normX *0.778, mousePosition.normY*0.778]
+        newWaveFilter.time = 0
+        gameGrid.filters? gameGrid.filters.push(newWaveFilter) : gameGrid.filters = [newWaveFilter]
+    }
+
+    function moveMines(mines, freeTile){
+        mines.forEach(m => {
+            m.isMine = false;
+            // m.neighbors.forEach(neighbor => {if(!neighbor.isMine) neighbor.mineNeighbors -= 1})
+            m.updateGraphic();
+
+            let candidates = [...m.adjacentNeighbors].filter(n => !n.isMine && !n.state.flagged);
+            candidates.push(m);
+            let choice = ~~(prng() * candidates.length);
+            if (candidates[choice] == freeTile) choice = (choice + 1) % candidates.length;
+            candidates[choice].isMine = true;
+            candidates[choice].state.revealed = false;
+            candidates[choice].color = UNREVEALED_COLOR;
+            candidates[choice].mineNeighbors = -1;
+            if (candidates[choice].isGlyph) candidates[choice].isDisarmed = false;
+            candidates[choice].updateGraphic();
+        })
+        GameObjects.forEach(tile => { 
+            tile.getMineNeighbors();
+            tile.updateGraphic();
+        });
+    }
+
+    const beginGame = (freeTile) => {
+
+        if (difficulty.difficultySetting == 3 && insistence != 4) {
+            alert("nah");
+            document.getElementById("difficulty-small").checked = true;
+            resize(0);
+            return;
+        }
+
+        started = true;
+        
+        plantMines(freeTile);
+
+        plantPowerups(freeTile);
+        if (glyphsEnabled) plantGlyphs(freeTile);
+
+        document.querySelectorAll(".mode-group input").forEach(e => e.disabled = true)
+
+        console.log("begin")
+        powerupList.forEach(p => p.updateCount())
+        // GameObjects.filter(g=>g.powerup).forEach(t=>t.reveal())
+        // document.querySelectorAll(".btn-group button").forEach(b => b.disabled = false)
+    }
+
+    const loseGame = () => {
+        if (lost) return;   //don't repeat this function if it's already been done before in this game
+        lost = true;
+        GameObjects.forEach(tile => {
+            if (tile.isMine){
+                tile.state.revealed = true;
+                // tile.updateGraphic();
+            } 
+            tile.updateGraphic();
+            /*if (tile.state.flagged){
+            }*/
+        })
+        // document.getElementById("sonarButton").disabled = true;
+        // document.getElementById("radarButton").disabled = true;
+
+        document.querySelectorAll(".mode-group input").forEach(e => e.disabled = true)
+        document.querySelectorAll(".btn-group button").forEach(b => b.disabled = true)
+        
+        let winnintext = document.getElementById("winnintext");
+        winnintext.style.visibility = "visible";
+        winnintext.innerHTML = "you lose!";
+    }
+
+    const winGame = () => {
+        if (won) return;
+        won = true;
+        GameObjects.filter(tile => !tile.state.revealed).forEach(tile => {
+            if (tile.isGlyph) this.isDisarmed = true;
+            tile.state.flagged = true;
+            tile.updateGraphic();
+        })
+        document.querySelectorAll(".mode-group input").forEach(e => e.disabled = true)
+        document.querySelectorAll(".btn-group button").forEach(b => b.disabled = true)
+
+        document.getElementById("mines").innerHTML = `mines left: ${difficulty.gridMines-GameObjects.filter(n=>n.state.flagged).length}`
+
+        let winnintext = document.getElementById("winnintext");
+        winnintext.style.visibility = "visible";
+        winnintext.innerHTML = `you win!`;
+    }
+
+    function click(tile, button, mainClick = true){
+
+        if (won || lost) return;
+
+        switch(button){
+            case 0:
+                //left click
+                if (tile.state.flagged) return;
+
+                if (!started){
+                    beginGame(tile);
+                    if (!started) return;
+                }
+
+                if (mainClick) totalClicks++;
+
+                // addShockwave();
+
+                //reveal
+                if (!tile.state.revealed) tile.reveal();
+
+                break;
+            case 1:
+                //chording
+                if (!tile.state.revealed) return;
+                
+                if (tile.neighbors.filter(f => f.state.flagged).length == tile.mineNeighbors) {
+                    if (tile.neighbors.filter(t => !t.state.flagged && !t.state.revealed).length > 0) totalClicks++;
+                    tile.neighbors.forEach(n => click(n, 0, false))
+                }
+                break;
+            case 2:
+                //flagging
+                if (tile.state.revealed) return;
+
+                if (!tile.state.flagged && GameObjects.filter(n=>n.state.flagged).length < difficulty.gridMines){
+                    tile.state.flagged = true;
+                    tile.neighbors.forEach(n => n.flaggedNeighbors++);
+                } else if (!tile.state.flaggedCorrect){
+                    tile.state.flagged = false;
+                    tile.neighbors.forEach(n => n.flaggedNeighbors--);
+                }
+                // tile.redraw = true;
+                tile.updateGraphic();
+        }
+
+        if (GameObjects.filter(n => n.state.flagged || !n.state.revealed).length == difficulty.gridMines && !lost) {
+            winGame();
+        }
+
+        if (limitedClicksMode && totalClicks >= difficulty.clickLimit && !won) {
+            loseGame();
+        }
+
+        if (paranoiaMode && mainClick && button != 2 && !lost) {
+            let moveableMines = GameObjects.filter(tile => tile.isMine && !tile.state.flagged)
+            moveMines(moveableMines, tile);
+        }
+        document.getElementById("mines").innerHTML = `mines left: ${difficulty.gridMines-GameObjects.filter(n=>n.state.flagged).length}`
+        document.getElementById("clicks").innerHTML = `clicks: ${totalClicks}${limitedClicksMode? " / " + difficulty.clickLimit : ""}`
+
+        let zeroes = GameObjects.filter(n => n.mineNeighbors == 0)
+        if (zeroes.length == 0){
+            let sonars = GameObjects.filter(n => n.powerup == powerupList[0])
+            sonars.forEach(n => n.powerup = powerupList[1])
+        }
+
+        if (adventureMode) {
+            GameObjects.forEach(t => {
+                if (t.state.revealed) return;
+                if (t.neighbors.every(n => !n.state.revealed && !n.state.flagged)) t.graphic.interactive = false;
+                else t.graphic.interactive = true;
+            })
+        }
+
+        GameObjects.forEach(n => n.checked = false);
+    }
+
+    /*function gameLoop(delta){
+
+        GameObjects.forEach(n => {
+            if (n.redraw) {
+                n.updateGraphic();
+                n.redraw = false;
+            }
+            n.checked = false;
+        })
+
+        VertiWalls.forEach(n => {
+            if (n.active) {
+                n.updateGraphic();
+            }
+        })
+
+        HorizWalls.forEach(n => {
+            if (n.active) {
+                n.updateGraphic();
+            }
+        })
+
+        if (GameObjects.filter(n => n.state.flagged || !n.state.revealed).length == difficulty.gridMines && !lost) {
+            winGame();
+        }
+
+        if (limitedClicksMode && totalClicks >= difficulty.clickLimit && !won) loseGame();
+
+        // var FuckModeToggle = document.getElementById("FuckModeToggle");
+        // if (filterEnabled && gameGrid.filters == null) gameGrid.filters = [waveFilter]
+        // if (!filterEnabled && gameGrid.filters != null) gameGrid.filters = null 
+    }*/
+
+</script>
+
+<br><br>
+<div class="btn-group" id="powerup-group"></div>
+<br>
+<div class="mode-group">
+    <label>
+        <input type="checkbox" id="limitedClicksToggle" onclick="toggleLimitedClicksMode()"> Limited Clicks Mode
+        <div class="tooltiptext">If you run out of clicks, you lose!</div>
+    </label>
+    
+    <br>
+
+    <label>
+        <input type="checkbox" id="labyrinthToggle" onclick="toggleLabyrinthMode()"> Labyrinth Mode
+        <div class="tooltiptext">Adds walls to the game grid.<br>Tiles cannot see adjacent tiles if there are walls in the way.</div>
+    </label>
+    
+    <br>
+
+    <label>
+        <input type="checkbox" id="borderToggle" onclick="toggleBorderMode()" checked> Border Mode
+        <div class="tooltiptext">ON: Regular Minesweeper. <br>OFF: Each edge is linked to the edge on the opposite side of the grid.</div>
+    </label>
+    
+    <br>
+
+    <label>
+        <input type="checkbox" id="paranoiaToggle" onclick="toggleParanoiaMode()"> Paranoia Mode
+        <div class="tooltiptext">Keep an eye on those mines!</div>
+    </label>
+    
+    <br>
+
+    <label>
+        <input type="checkbox" id="glyphToggle" onclick="toggleGlyphMode()"> Proximity Mines
+        <div class="tooltiptext">Adds special Proximity Mines underneath regular tiles.<br>You can defuse it by correctly flagging every mine around it and clearing the rest of its neighbors.<br>If the proximity mine isn't defused fast enough, you lose!</div>
+    </label>
+    
+    <br>
+
+    <label>
+        <input type="checkbox" id="adventureToggle" onclick="toggleAdventureMode()"> Adventure Mode
+        <div class="tooltiptext">Disables clicking on tiles that aren't adjacent to cleared or flagged tiles.</div>
+    </label>
+    
+    <br>
+
+</div>
+<br>
+<div class="restart-group">
+    <button onpointerup="startGame()">restart</button>
+    <label>
+        <input type="checkbox" onclick="keepWalls = !keepWalls"> Keep Walls
+        <div class="tooltiptext">Keep the current set of walls when you restart.<br>(Has no effect outside of Labyrinth Mode.)</div>
+    </label>
+    <br><br>
+</div>
+
+<div class="seed-group">
+    <button id="showSeedButton" onpointerup="toggleSeed()">Show Seed</button>
+    <button id="useSeedButton" onpointerup="loadSeed()" disabled>Load Seed</button>
+</div>    
+<input id="seedText" type="text" onfocus="this.select()" style="display: none">
+
+<div class="themes">
+    Themes: 
+    <label><input type="radio" name="theme" onchange="changeBG('Plain')"> Plain</label>
+    <label><input type="radio" name="theme" onchange="changeBG('Summer')" checked> Summer</label>
+    <label><input type="radio" name="theme" onchange="changeBG('Autumn')"> Autumn</label>
+    <label><input type="radio" name="theme" onchange="changeBG('Winter')"> Winter</label>
+    <label><input type="radio" name="theme" onchange="changeBG('Spring')"> Spring</label>
+    <label><input type="radio" name="theme" onchange="changeBG('Rainbow')"> Rainbow</label>
+</div>
+<br>
+<div class="sizes">
+    Grid Size: 
+    <label id="label-difficulty-small"><input id="difficulty-small"    type="radio" name="size" onchange="resize(0)" checked> Small</label>
+    <label id="label-difficulty-medium"><input id="difficulty-medium"  type="radio" name="size" onchange="resize(1)"> Medium</label>
+    <label id="label-difficulty-large"><input id="difficulty-large"    type="radio" name="size" onchange="resize(2)"> Large</label>
+    <label id="label-difficulty-jackass"><input id="difficulty-jackass" type="radio" name="size" onclick="resize(3)"> Too Large</label>
+</div>
+
+<!-- themes -->
+<script>
+    const changeBG = (theme) => {
+        const themeMap = {
+            'Plain':   'linear-gradient(0deg, #D3D3D3, #D3D3D3)',
+            'Summer':  'linear-gradient(-20deg, #D0B782 20%, #A0CECF 80%)',
+            'Autumn':  'linear-gradient(to top right, rgba(255, 255, 0, 0.3), rgba(255,255,255,0) 40% 60%, rgba(255, 255, 0, 0.3)),'+
+                       'linear-gradient(to bottom right, rgba(255, 150, 112, 1) 0%, rgba(235, 183, 127, 1))',
+            'Winter':  'linear-gradient(-10deg, #BBBBBB 20%, #A0CECF 80%)',
+            'Spring':  'linear-gradient(10deg, #a9dea9 10%, #DDBBBB 90%)',
+            'Rainbow': 'linear-gradient(217deg, rgba(255,0,0,0.7), rgba(255,0,0,0) 50%),'+
+                       'linear-gradient(127deg, rgba(0,255,0,0.7), rgba(0,255,0,0) 50%),'+
+                       'linear-gradient(336deg, rgba(0,0,255,0.7), rgba(0,0,255,0) 50%)'
+        }
+        document.body.style.backgroundImage = themeMap[theme];
+    }
+
+    changeBG("Summer"); //default theme
+
+    /*'linear-gradient(217deg, rgba(255,0,0,.8), rgba(255,0,0,0) 70.71%),'+
+                       'linear-gradient(127deg, rgba(0,255,0,.8), rgba(0,255,0,0) 70.71%),'+
+                       'linear-gradient(336deg, rgba(0,0,255,.8), rgba(0,0,255,0) 70.71%)'*/
+</script>
+
+<!-- Color Fade -->
+<script>
+    lerp = (a,b,u) => (1-u) * a + u * b;
+    
+    fade = function(element, startColor, endColor, duration) {
+        // duration = 2500;
+        var interval = 10;
+        var steps = duration/interval;
+        var step_u = 1.0/steps;
+        var u = 0.0;
+        app.ticker.add(fadeCalc);
+        TickerObjects.push(fadeCalc);
+
+        let startColorRGB = hexToRGB(parseInt(startColor));
+        let endColorRGB   = hexToRGB(parseInt(endColor));
+
+        function fadeCalc (delta){
+            if (u >= 1.0) {
+                element.state.powerupActive = false;
+                app.ticker.remove(fadeCalc); 
+                return;
+            }
+            if (element.state.revealed && endColor == UNREVEALED_COLOR){ 
+                element.state.powerupActive = false; 
+                app.ticker.remove(fadeCalc);
+                return;
+            }
+            if (!element.state.revealed && endColor == REVEALED_COLOR){ 
+                element.state.powerupActive = false;
+                app.ticker.remove(fadeCalc); 
+                return;
+            }
+            var r = Math.round(lerp(startColorRGB.r, endColorRGB.r, u)).toString(16).toUpperCase();
+            var g = Math.round(lerp(startColorRGB.g, endColorRGB.g, u)).toString(16).toUpperCase();
+            var b = Math.round(lerp(startColorRGB.b, endColorRGB.b, u)).toString(16).toUpperCase();
+            var newColor = `0x${r}${g}${b}`;
+            // console.log(r,g,b)
+            element.color = newColor;
+            element.updateGraphic();
+            u += step_u;
+        }
+    };
+</script>
+
+<!-- Seed Scripts -->
+<script>
+    const toggleSeed = () => {
+        seedVisible = !seedVisible;
+        document.getElementById("showSeedButton").innerHTML = seedVisible? "Hide Seed" : "Show Seed";
+        document.getElementById("useSeedButton").disabled = seedVisible? false : true;
+        document.getElementById("seedText").style.display = seedVisible? "" : "none";
+        if (!seedVisible) seedMode = false;
+        if (seedVisible) updateSeed();
+    }
+
+    const updateSeed = () => {
+        let seedText = document.getElementById("seedText");
+        seedText.value = seed;
+        seedText.style.width = (seed.length)*10+"px";
+    }
+
+    const loadSeed = () => {
+        // seedMode = true;
+        let seedText = document.getElementById("seedText")
+        seed = document.getElementById("seedText").value;
+        startGame(seed);
+    }
+</script>
+
+<!-- Toggle Modes -->
+<script>
+    const toggleLimitedClicksMode = () => { 
+        limitedClicksMode = !limitedClicksMode;
+        document.getElementById("clicks").innerHTML = `clicks: ${totalClicks}` + (limitedClicksMode? ` / ${difficulty.clickLimit}` : ``)
+    }
+
+    const toggleLabyrinthMode = () => { 
+        labyrinthMode = !labyrinthMode;
+        HorizWalls.forEach(w => w.updateState());
+        VertiWalls.forEach(w => w.updateState());
+        GameObjects.forEach(n=>n.getNeighbors());
+    }
+
+    const toggleBorderMode = () => { 
+        borderMode = !borderMode;
+        HorizWalls.forEach(w => w.updateState());
+        VertiWalls.forEach(w => w.updateState());
+        GameObjects.forEach(n=>n.getNeighbors());
+    }
+
+    const toggleParanoiaMode = () => { 
+        paranoiaMode = !paranoiaMode;
+        // Keep these for filter reasons
+        // if (!paranoiaMode) gameGrid.position.set(1,0);
+        // if (paranoiaMode)  gameGrid.position.set(1,1);
+
+        // if (labyrinthMode) {
+        //     HorizWalls.forEach(w => w.updateGraphic());
+        //     VertiWalls.forEach(w => w.updateGraphic());
+        // }
+    }
+
+    const toggleGlyphMode = () => glyphsEnabled = !glyphsEnabled;
+
+    const toggleAdventureMode = () => adventureMode = !adventureMode
+</script>
+
+<!-- Resize Game Grid -->
+<script>
+    let insistence = 0;
+    let jackassNameArray = ["Too Large", "Too Large", "Are You Sure About This?", "This is a Bad Idea", "Well Okay"]
+    let jackassLabel = document.getElementById("label-difficulty-jackass");
+
+    const resize = (size) => {
+        if (size == 3){
+            insistence = Math.min(insistence+1, 4)
+            jackassLabel.innerHTML = jackassLabel.innerHTML.replace(/>.+$/g, "> " + jackassNameArray[insistence]);
+            document.getElementById("difficulty-jackass").checked = true;
+            if (difficulty.difficultySetting == 3) return;  //Don't set it again if it's already at 3
+        } 
+        else insistence = 0;
+
+        jackassLabel.innerHTML = jackassLabel.innerHTML.replace(/>.+$/g, "> " + jackassNameArray[insistence]);
+        if (size == 3) document.getElementById("difficulty-jackass").checked = true;
+
+
+
+        difficulty = Object.freeze(new difficultyClass(size));
+        console.log(difficulty)
+
+
+        GAME_WIDTH = difficulty.gridWidth*(TILE_WIDTH+1) + 2;
+        GAME_HEIGHT = difficulty.gridHeight*(TILE_HEIGHT+1) + 2;
+
+        app.view.width = GAME_WIDTH;
+        app.view.height = GAME_HEIGHT;
+
+        gameGrid.destroy({children: true});
+        // console.log(gameGrid.children);
+        GameObjects.forEach(n => delete n);
+         VertiWalls.forEach(n => delete n);
+         HorizWalls.forEach(n => delete n);
+
+        GameObjects = [];
+        VertiWalls = [];
+        HorizWalls = [];
+
+        gameGrid = new PIXI.Graphics();
+        gameGrid.position.set(1,0);
+        app.stage.addChild(gameGrid);
+        createGrid(difficulty.gridWidth, difficulty.gridHeight);
+
+        app.renderer.resize(GAME_WIDTH, GAME_HEIGHT);
+
+        startGame();
+    }
+
+</script>
+
+
+<!-- Base64 conversion -->
+<script>
+    Base64 = (function () {
+        let digitsStr = 
+        //   0       8       16      24      32      40      48      56     63
+        //   v       v       v       v       v       v       v       v      v
+            "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz+-";
+        let digits = digitsStr.split('');
+        let digitsMap = {};
+        for (let i = 0; i < digits.length; i++) {
+            digitsMap[digits[i]] = i;
+        }
+        return {
+            fromInt: function(int32) {      //Base64.fromInt(20) == K
+                let result = '';
+                while (true) {
+                    result = digits[int32 & 0x3f] + result;
+                    int32 >>>= 6;
+                    if (int32 === 0)
+                        break;
+                }
+                return result;
+            },
+            toInt: function(digitsStr) {    //Base64.toInt(K) == 20
+                let result = 0;
+                let digits = digitsStr.split('');
+                for (let i = 0; i < digits.length; i++) {
+                    result = (result << 6) + digitsMap[digits[i]];
+                }
+                return result;
+            }
+        };
+    })();
+</script>
+
+</body>
+</html>
